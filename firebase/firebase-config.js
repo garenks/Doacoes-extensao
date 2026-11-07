@@ -5,9 +5,9 @@
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxl2sOurOSPW3xZXuhdYjbrAMnH-l-CAo",
-  authDomain: "ong-extensao.firebaseapp.com",
-  projectId: "ong-extensao",
-  storageBucket: "ong-extensao.firebasestorage.app",
+  authDomain: "ong-una.firebaseapp.com",
+  projectId: "ong-una",
+  storageBucket: "ong-una.firebasestorage.app",
   messagingSenderId: "238669137907",
   appId: "1:238669137907:web:aba9e80b95d47db9f5b486"
 };

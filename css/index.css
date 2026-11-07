@@ -408,3 +408,378 @@ tbody td { padding: 12px 20px; font-size: 13px; color: var(--texto); }
   #relatorio { display: block !important; }
   .tabela-wrap { box-shadow: none; border: none; }
 }
+
+/* ============================================================
+   RESPONSIVIDADE APRIMORADA — DESKTOP, TABLET E CELULAR
+   Mantém os botões de editar/excluir acessíveis nas tabelas.
+   ============================================================ */
+
+/* Evita que elementos largos estourem o viewport */
+html {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body,
+.layout,
+.conteudo,
+.pagina {
+  min-width: 0;
+}
+
+.conteudo {
+  width: calc(100% - 220px);
+}
+
+/* Tabelas passam a rolar horizontalmente em vez de cortar colunas */
+.tabela-wrap {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tabela-wrap table {
+  width: 100%;
+  min-width: 760px;
+}
+
+/* A coluna Ações fica visível no canto direito durante a rolagem */
+#tabela-doadores td:last-child,
+#tabela-doacoes td:last-child,
+#tabela-beneficiarios td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  min-width: 104px;
+  white-space: nowrap;
+  background: #fff;
+  box-shadow: -5px 0 8px rgba(43, 35, 24, 0.06);
+}
+
+#tabela-doadores tr:hover td:last-child,
+#tabela-doacoes tr:hover td:last-child,
+#tabela-beneficiarios tr:hover td:last-child {
+  background: var(--cinza-1);
+}
+
+#tabela-doadores td:last-child .btn,
+#tabela-doacoes td:last-child .btn,
+#tabela-beneficiarios td:last-child .btn {
+  min-width: 38px;
+  min-height: 38px;
+  justify-content: center;
+  padding: 8px;
+  touch-action: manipulation;
+}
+
+/* A tabela de doações tem mais colunas; reserva espaço para todas */
+#doacoes .tabela-wrap table {
+  min-width: 1050px;
+}
+
+#painel .tabela-wrap table {
+  min-width: 560px;
+}
+
+/* Tablet */
+@media (min-width: 701px) and (max-width: 1024px) {
+  .sidebar {
+    width: 190px;
+  }
+
+  .sidebar-logo {
+    padding: 24px 16px 18px;
+  }
+
+  .sidebar-logo .marca {
+    font-size: 18px;
+  }
+
+  .nav-item {
+    padding-left: 16px;
+    padding-right: 12px;
+  }
+
+  .conteudo {
+    width: calc(100% - 190px);
+    margin-left: 190px;
+    padding: 24px;
+    max-width: none;
+  }
+
+  .cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tabela-header {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}
+
+/* Celular e telas estreitas */
+@media (max-width: 700px) {
+  .sidebar {
+    width: 100%;
+    height: calc(60px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    flex-direction: row;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .sidebar nav {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .nav-item {
+    flex: 1 1 20%;
+    min-width: 0;
+    min-height: 60px;
+    padding: 8px 2px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 10px;
+    line-height: 1.15;
+    border: 0;
+    border-top: 3px solid transparent;
+  }
+
+  .nav-item.ativo {
+    border-top: 3px solid rgba(255,255,255,0.9);
+    border-left: 0;
+  }
+
+  .layout {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .conteudo {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    margin-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 12px 24px;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .page-sub {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .page-header > button {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+  }
+
+  .cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .card {
+    min-width: 0;
+    padding: 15px 12px;
+  }
+
+  .card-valor {
+    font-size: 27px;
+    overflow-wrap: anywhere;
+  }
+
+  .tabela-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .tabela-header > div {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .busca-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .busca-wrap input {
+    width: 100% !important;
+    min-height: 40px;
+  }
+
+  #doacoes .tabela-header > div {
+    display: flex !important;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  #doacoes .tabela-header select {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .tabela-wrap table {
+    min-width: 760px;
+  }
+
+  #doacoes .tabela-wrap table {
+    min-width: 1050px;
+  }
+
+  #painel .tabela-wrap table {
+    min-width: 560px;
+  }
+
+  /* Mantém os controles de ação confortáveis para toque */
+  #tabela-doadores td:last-child,
+  #tabela-doacoes td:last-child,
+  #tabela-beneficiarios td:last-child {
+    min-width: 112px;
+    padding: 8px 10px;
+  }
+
+  #tabela-doadores td:last-child .btn,
+  #tabela-doacoes td:last-child .btn,
+  #tabela-beneficiarios td:last-child .btn {
+    min-width: 42px;
+    min-height: 42px;
+    font-size: 15px;
+    margin: 2px !important;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .form-acoes {
+    flex-direction: column-reverse;
+  }
+
+  .form-acoes .btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 8px;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(92dvh - env(safe-area-inset-bottom, 0px));
+    padding: 22px 18px;
+    border-radius: 16px 16px 10px 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    min-height: 42px;
+    font-size: 16px; /* evita zoom automático no iPhone */
+  }
+
+  .form-group textarea {
+    min-height: 76px;
+  }
+
+  .toast {
+    left: 12px;
+    right: 12px;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+  }
+
+  #relatorio .card > div {
+    flex-wrap: wrap;
+  }
+
+  #conteudo-relatorio {
+    padding: 16px !important;
+    overflow-x: auto;
+  }
+
+  #conteudo-relatorio table {
+    min-width: 680px;
+  }
+}
+
+/* Celulares muito estreitos */
+@media (max-width: 380px) {
+  .conteudo {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .nav-item {
+    font-size: 9px;
+    padding-left: 1px;
+    padding-right: 1px;
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .card-label {
+    font-size: 10px;
+  }
+
+  .card-valor {
+    font-size: 24px;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+}
+
+/* Celular em paisagem: não deixa o modal ocupar a tela toda */
+@media (max-width: 900px) and (orientation: landscape) {
+  .modal {
+    max-height: 82dvh;
+  }
+}
+
+/* Acessibilidade: foco visível ao navegar por teclado */
+button:focus-visible,
+.nav-item:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(212, 146, 26, 0.35);
+  outline-offset: 2px;
+}

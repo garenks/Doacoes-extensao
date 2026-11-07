@@ -4,11 +4,17 @@
 
 let cacheDoadores = [];
 let cacheDoacoes = [];
+let cacheBeneficiarios = [];
 let firestorePronto = false;
 
 const DB = {
   doadores: () => cacheDoadores,
   doacoes: () => cacheDoacoes,
+  beneficiarios: () => cacheBeneficiarios,
+
+  async salvarBeneficiarios(dados) {
+    await salvarColecao("beneficiarios", dados);
+  },
 
   async salvarDoadores(dados) {
     await salvarColecao("doadores", dados);
@@ -78,6 +84,10 @@ function atualizarTelasAbertas() {
     renderDoacoes();
   }
 
+  if (paginaAtiva === "beneficiarios") {
+    renderBeneficiarios();
+  }
+
   if (paginaAtiva === "relatorio") {
     gerarRelatorio();
   }
@@ -85,70 +95,60 @@ function atualizarTelasAbertas() {
 
 async function iniciarFirebaseDados() {
   try {
-    let doadoresCarregados = false;
-    let doacoesCarregadas = false;
+    const carregado = {
+      doadores: false,
+      doacoes: false,
+      beneficiarios: false
+    };
 
-    // Escuta atualizações dos doadores em tempo real.
-    firebaseDb.collection("doadores").onSnapshot(
-      snapshot => {
-        cacheDoadores = snapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: Number(doc.id)
-        }));
+    // Escuta uma coleção em tempo real e guarda no cache.
+    function escutar(colecao, rotulo, guardar) {
+      firebaseDb.collection(colecao).onSnapshot(
+        snapshot => {
+          guardar(
+            snapshot.docs.map(doc => ({
+              ...doc.data(),
+              id: Number(doc.id)
+            }))
+          );
 
-        doadoresCarregados = true;
+          carregado[colecao] = true;
 
-        firestorePronto =
-          doadoresCarregados && doacoesCarregadas;
+          firestorePronto =
+            carregado.doadores &&
+            carregado.doacoes &&
+            carregado.beneficiarios;
 
-        if (firestorePronto) {
-          atualizarTelasAbertas();
+          if (firestorePronto) {
+            atualizarTelasAbertas();
+          }
+        },
+
+        erro => {
+          console.error(
+            `Erro ao carregar ${rotulo} do Firestore:`,
+            erro
+          );
+
+          mostrarToast(
+            `Erro ao carregar ${rotulo}. Verifique a configuração e as permissões.`,
+            true
+          );
         }
-      },
+      );
+    }
 
-      erro => {
-        console.error(
-          "Erro ao carregar doadores do Firestore:",
-          erro
-        );
+    escutar("doadores", "doadores", lista => {
+      cacheDoadores = lista;
+    });
 
-        mostrarToast(
-          "Erro ao carregar doadores. Verifique a configuração e as permissões.",
-          true
-        );
-      }
-    );
+    escutar("doacoes", "doações", lista => {
+      cacheDoacoes = lista;
+    });
 
-    // Escuta atualizações das doações em tempo real.
-    firebaseDb.collection("doacoes").onSnapshot(
-      snapshot => {
-        cacheDoacoes = snapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: Number(doc.id)
-        }));
-
-        doacoesCarregadas = true;
-
-        firestorePronto =
-          doadoresCarregados && doacoesCarregadas;
-
-        if (firestorePronto) {
-          atualizarTelasAbertas();
-        }
-      },
-
-      erro => {
-        console.error(
-          "Erro ao carregar doações do Firestore:",
-          erro
-        );
-
-        mostrarToast(
-          "Erro ao carregar doações. Verifique a configuração e as permissões.",
-          true
-        );
-      }
-    );
+    escutar("beneficiarios", "beneficiários", lista => {
+      cacheBeneficiarios = lista;
+    });
   } catch (erro) {
     console.error(
       "Erro ao iniciar o Firebase:",
@@ -197,6 +197,10 @@ function irPara(pagina) {
     renderDoacoes();
   }
 
+  if (pagina === "beneficiarios") {
+    renderBeneficiarios();
+  }
+
   if (pagina === "relatorio") {
     iniciarRelatorio();
     gerarRelatorio();
@@ -215,6 +219,47 @@ function formatarData(d) {
   const [y, m, dia] = d.split("-");
 
   return `${dia}/${m}/${y}`;
+}
+
+// Evita que texto digitado vire HTML ao ser exibido nas tabelas.
+function esc(texto) {
+  return String(texto ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
+
+// Nome de quem recebeu a doação. Usa o cadastro atual (se o nome
+// mudou) e cai no nome gravado na doação se o cadastro foi removido.
+function nomeBeneficiarioDaDoacao(d) {
+  if (!d.beneficiarioId) {
+    return "";
+  }
+
+  const b = DB.beneficiarios().find(
+    x => x.id === d.beneficiarioId
+  );
+
+  return b ? b.nome : (d.beneficiario || "");
+}
+
+// Máscara de celular: (11) 99999-9999
+function mascararCelular(input) {
+  let v = input.value.replace(/\D/g, "").slice(0, 11);
+
+  if (v.length > 6) {
+    const corte = v.length > 10 ? 7 : 6;
+    v = `(${v.slice(0, 2)}) ${v.slice(2, corte)}-${v.slice(corte)}`;
+  } else if (v.length > 2) {
+    v = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+  } else if (v.length > 0) {
+    v = `(${v}`;
+  }
+
+  input.value = v;
 }
 
 function badgeTipoDoador(t) {
@@ -353,7 +398,11 @@ function renderPainel() {
     `
     : ultimas.map(d => `
       <tr>
-        <td><strong>${d.doador}</strong></td>
+        <td>${
+          d.pelaOng
+            ? '<span class="badge badge-azul">ONG</span>'
+            : `<strong>${esc(d.doador)}</strong>`
+        }</td>
         <td>${d.item}</td>
         <td>${d.qtd}</td>
         <td>${formatarData(d.data)}</td>
@@ -596,7 +645,8 @@ function renderDoacoes() {
   const lista = DB.doacoes().filter(d =>
     (
       d.doador.toLowerCase().includes(busca) ||
-      d.item.toLowerCase().includes(busca)
+      d.item.toLowerCase().includes(busca) ||
+      nomeBeneficiarioDaDoacao(d).toLowerCase().includes(busca)
     ) &&
     (tipo === "" || d.tipo === tipo)
   );
@@ -613,7 +663,7 @@ function renderDoacoes() {
   if (sorted.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="sem-dados">
+        <td colspan="8" class="sem-dados">
           <div class="ico-grande">📦</div>
           Nenhuma doação encontrada
         </td>
@@ -625,7 +675,11 @@ function renderDoacoes() {
 
   tbody.innerHTML = sorted.map(d => `
     <tr>
-      <td><strong>${d.doador}</strong></td>
+      <td>${
+        d.pelaOng
+          ? '<span class="badge badge-azul">ONG</span>'
+          : `<strong>${esc(d.doador)}</strong>`
+      }</td>
       <td>${d.item}</td>
 
       <td>
@@ -636,6 +690,14 @@ function renderDoacoes() {
 
       <td>${d.qtd}</td>
       <td>${formatarData(d.data)}</td>
+
+      <td>
+        ${
+          nomeBeneficiarioDaDoacao(d)
+            ? `<strong>${esc(nomeBeneficiarioDaDoacao(d))}</strong>`
+            : '<span class="badge badge-cinza">Em estoque</span>'
+        }
+      </td>
 
       <td style="font-size:12px;color:var(--cinza-3)">
         ${d.obs || "—"}
@@ -678,6 +740,18 @@ function abrirModalDoacao(id) {
         `<option value="${d.id}">${d.nome}</option>`
       ).join("");
 
+  const beneficiarios = [...DB.beneficiarios()].sort(
+    (a, b) => a.nome.localeCompare(b.nome, "pt-BR")
+  );
+
+  const selBen = document.getElementById("dc-beneficiario");
+
+  selBen.innerHTML =
+    '<option value="">— Ainda não entregue (em estoque) —</option>' +
+    beneficiarios.map(b =>
+      `<option value="${b.id}">${esc(b.nome)}</option>`
+    ).join("");
+
   if (id) {
     const d = DB.doacoes().find(x => x.id === id);
 
@@ -686,7 +760,14 @@ function abrirModalDoacao(id) {
       return;
     }
 
-    sel.value = d.doadorId;
+    if (d.doadorId) {
+      sel.value = d.doadorId;
+    } else {
+      sel.selectedIndex = 0;
+    }
+
+    document.getElementById("dc-ong").checked = !!d.pelaOng;
+    selBen.value = d.beneficiarioId || "";
 
     document.getElementById("dc-tipo").value = d.tipo;
     document.getElementById("dc-data").value = d.data;
@@ -695,6 +776,8 @@ function abrirModalDoacao(id) {
     document.getElementById("dc-obs").value = d.obs || "";
   } else {
     document.getElementById("dc-tipo").value = "Alimento";
+    document.getElementById("dc-ong").checked = false;
+    selBen.value = "";
 
     document.getElementById("dc-data").value =
       new Date().toISOString().split("T")[0];
@@ -704,8 +787,21 @@ function abrirModalDoacao(id) {
     });
   }
 
+  alternarDoacaoOng();
+
   document.getElementById("modal-doacao")
     .classList.add("aberto");
+}
+
+// Mostra ou esconde a escolha do doador conforme "Doação feita pela ONG".
+function alternarDoacaoOng() {
+  const ong = document.getElementById("dc-ong").checked;
+
+  document.getElementById("grupo-doador").style.display =
+    ong ? "none" : "";
+
+  document.getElementById("aviso-ong").style.display =
+    ong ? "" : "none";
 }
 
 function editarDoacao(id) {
@@ -713,10 +809,11 @@ function editarDoacao(id) {
 }
 
 async function salvarDoacao() {
-  const doadorId = parseInt(
-    document.getElementById("dc-doador").value,
-    10
-  );
+  const pelaOng = document.getElementById("dc-ong").checked;
+
+  const doadorId = pelaOng
+    ? null
+    : parseInt(document.getElementById("dc-doador").value, 10);
 
   const item =
     document.getElementById("dc-item").value.trim();
@@ -727,7 +824,7 @@ async function salvarDoacao() {
   const data =
     document.getElementById("dc-data").value;
 
-  if (!doadorId || !item || !qtd || !data) {
+  if ((!pelaOng && !doadorId) || !item || !qtd || !data) {
     mostrarToast(
       "Preencha todos os campos obrigatórios.",
       true
@@ -736,21 +833,33 @@ async function salvarDoacao() {
     return;
   }
 
-  const doador = DB.doadores().find(
-    d => d.id === doadorId
-  );
+  const doador = pelaOng
+    ? null
+    : DB.doadores().find(d => d.id === doadorId);
 
-  if (!doador) {
+  if (!pelaOng && !doador) {
     mostrarToast("Selecione um doador válido.", true);
     return;
   }
+
+  const beneficiarioId = parseInt(
+    document.getElementById("dc-beneficiario").value,
+    10
+  ) || null;
+
+  const beneficiario = beneficiarioId
+    ? DB.beneficiarios().find(b => b.id === beneficiarioId)
+    : null;
 
   const doacoes = [...DB.doacoes()];
 
   const doacao = {
     id: editandoDoacao || Date.now(),
-    doadorId,
-    doador: doador.nome,
+    doadorId: pelaOng ? null : doador.id,
+    doador: pelaOng ? "ONG" : doador.nome,
+    pelaOng,
+    beneficiarioId: beneficiario ? beneficiario.id : null,
+    beneficiario: beneficiario ? beneficiario.nome : "",
     tipo: document.getElementById("dc-tipo").value,
     item,
     qtd,
@@ -821,6 +930,232 @@ async function excluirDoacao(id) {
 }
 
 // ============================================================
+// BENEFICIÁRIOS (quem recebe as doações)
+// ============================================================
+
+let termoBuscaBeneficiario = "";
+
+function renderBeneficiarios() {
+  const doacoes = DB.doacoes();
+  const termo = termoBuscaBeneficiario.toLowerCase();
+
+  const lista = DB.beneficiarios()
+    .filter(b =>
+      b.nome.toLowerCase().includes(termo) ||
+      (b.endereco || "").toLowerCase().includes(termo) ||
+      (b.tel || "").includes(termo)
+    )
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  document.getElementById("contagem-beneficiarios").textContent =
+    `${lista.length} ${lista.length === 1 ? "beneficiário" : "beneficiários"}`;
+
+  const tbody = document.getElementById("tabela-beneficiarios");
+
+  if (lista.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="sem-dados">
+          <div class="ico-grande">🏠</div>
+          ${
+            termoBuscaBeneficiario
+              ? "Nenhum resultado encontrado"
+              : "Nenhum beneficiário cadastrado ainda"
+          }
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+  tbody.innerHTML = lista.map(b => {
+    const recebidas = doacoes
+      .filter(d => d.beneficiarioId === b.id)
+      .sort((x, y) => y.data.localeCompare(x.data));
+
+    const resumo = recebidas
+      .slice(0, 3)
+      .map(d => esc(d.item))
+      .join(", ");
+
+    return `
+      <tr>
+        <td><strong>${esc(b.nome)}</strong></td>
+
+        <td>${esc(b.tel) || "—"}</td>
+
+        <td style="max-width:260px">${esc(b.endereco) || "—"}</td>
+
+        <td>
+          <span class="badge badge-principal">
+            ${recebidas.length} ${recebidas.length === 1 ? "doação" : "doações"}
+          </span>
+          ${
+            resumo
+              ? `<br><span style="font-size:11px;color:var(--cinza-3)">${resumo}${recebidas.length > 3 ? "…" : ""}</span>`
+              : ""
+          }
+        </td>
+
+        <td>
+          <button
+            class="btn btn-ghost btn-sm"
+            onclick="editarBeneficiario(${b.id})"
+          >✏️</button>
+
+          <button
+            class="btn btn-perigo btn-sm"
+            onclick="excluirBeneficiario(${b.id})"
+            style="margin-left:4px"
+          >🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function filtrarBeneficiarios(v) {
+  termoBuscaBeneficiario = v;
+  renderBeneficiarios();
+}
+
+let editandoBeneficiario = null;
+
+function abrirModalBeneficiario(id) {
+  editandoBeneficiario = id || null;
+
+  document.getElementById("titulo-modal-beneficiario").textContent =
+    id ? "Editar Beneficiário" : "Novo Beneficiário";
+
+  if (id) {
+    const b = DB.beneficiarios().find(x => x.id === id);
+
+    if (!b) {
+      mostrarToast("Beneficiário não encontrado.", true);
+      return;
+    }
+
+    document.getElementById("b-nome").value = b.nome;
+    document.getElementById("b-tel").value = b.tel || "";
+    document.getElementById("b-endereco").value = b.endereco || "";
+  } else {
+    ["b-nome", "b-tel", "b-endereco"].forEach(f => {
+      document.getElementById(f).value = "";
+    });
+  }
+
+  document.getElementById("modal-beneficiario")
+    .classList.add("aberto");
+}
+
+function editarBeneficiario(id) {
+  abrirModalBeneficiario(id);
+}
+
+async function salvarBeneficiario() {
+  const nome = document.getElementById("b-nome").value.trim();
+  const tel = document.getElementById("b-tel").value.trim();
+
+  const endereco =
+    document.getElementById("b-endereco").value.trim();
+
+  if (!nome || !tel || !endereco) {
+    mostrarToast(
+      "Preencha nome, celular e endereço.",
+      true
+    );
+
+    return;
+  }
+
+  if (tel.replace(/\D/g, "").length < 10) {
+    mostrarToast(
+      "Informe o celular com DDD.",
+      true
+    );
+
+    return;
+  }
+
+  const beneficiarios = [...DB.beneficiarios()];
+
+  const beneficiario = {
+    id: editandoBeneficiario || Date.now(),
+    nome,
+    tel,
+    endereco
+  };
+
+  if (editandoBeneficiario) {
+    const indice = beneficiarios.findIndex(
+      b => b.id === editandoBeneficiario
+    );
+
+    if (indice === -1) {
+      mostrarToast("Beneficiário não encontrado.", true);
+      return;
+    }
+
+    beneficiarios[indice] = beneficiario;
+  } else {
+    beneficiarios.push(beneficiario);
+  }
+
+  try {
+    await DB.salvarBeneficiarios(beneficiarios);
+
+    mostrarToast(
+      editandoBeneficiario
+        ? "Beneficiário atualizado!"
+        : "Beneficiário cadastrado!"
+    );
+
+    fecharModal("modal-beneficiario");
+    renderBeneficiarios();
+  } catch (erro) {
+    console.error("Erro ao salvar beneficiário:", erro);
+
+    mostrarToast(
+      "Não foi possível salvar o beneficiário no Firebase.",
+      true
+    );
+  }
+}
+
+async function excluirBeneficiario(id) {
+  const vinculadas = DB.doacoes().filter(
+    d => d.beneficiarioId === id
+  ).length;
+
+  const aviso = vinculadas > 0
+    ? `Excluir este beneficiário? As ${vinculadas} doação(ões) entregues a ele continuarão registradas, com o nome dele.`
+    : "Excluir este beneficiário?";
+
+  if (!confirm(aviso)) {
+    return;
+  }
+
+  try {
+    const atualizados = DB.beneficiarios().filter(
+      b => b.id !== id
+    );
+
+    await DB.salvarBeneficiarios(atualizados);
+
+    mostrarToast("Beneficiário removido.");
+    renderBeneficiarios();
+  } catch (erro) {
+    console.error("Erro ao excluir beneficiário:", erro);
+
+    mostrarToast(
+      "Não foi possível excluir o beneficiário no Firebase.",
+      true
+    );
+  }
+}
+
+// ============================================================
 // RELATÓRIO MENSAL
 // ============================================================
 
@@ -832,6 +1167,83 @@ function iniciarRelatorio() {
 
   document.getElementById("rel-ano").value =
     hoje.getFullYear();
+}
+
+const ESTILO_MUDO = "font-size:11px;color:var(--texto-2);line-height:1.6";
+
+function linhaMuda(texto) {
+  return `<br><span style="${ESTILO_MUDO}">${esc(texto)}</span>`;
+}
+
+// Quem doou: nome, tipo, telefone e e-mail (ou "ONG").
+function celulaDoadorRelatorio(d) {
+  if (d.pelaOng) {
+    return `<strong>ONG</strong>${linhaMuda("Doação feita pela ONG")}`;
+  }
+
+  const cadastro = DB.doadores().find(x => x.id === d.doadorId);
+  const nome = cadastro ? cadastro.nome : d.doador;
+
+  let html = `<strong>${esc(nome)}</strong>`;
+
+  if (cadastro) {
+    if (cadastro.tipo) {
+      html += linhaMuda(cadastro.tipo);
+    }
+
+    if (cadastro.tel) {
+      html += linhaMuda(`Tel: ${cadastro.tel}`);
+    }
+
+    if (cadastro.email) {
+      html += linhaMuda(cadastro.email);
+    }
+  }
+
+  return html;
+}
+
+// Quem recebeu: nome, celular e endereço (ou "em estoque").
+function celulaBeneficiarioRelatorio(d) {
+  if (!d.beneficiarioId) {
+    return `<span style="${ESTILO_MUDO}">Não entregue (em estoque)</span>`;
+  }
+
+  const cadastro = DB.beneficiarios().find(
+    x => x.id === d.beneficiarioId
+  );
+
+  const nome = cadastro ? cadastro.nome : d.beneficiario;
+
+  let html = `<strong>${esc(nome)}</strong>`;
+
+  if (cadastro) {
+    if (cadastro.tel) {
+      html += linhaMuda(`Celular: ${cadastro.tel}`);
+    }
+
+    if (cadastro.endereco) {
+      html += linhaMuda(`Endereço: ${cadastro.endereco}`);
+    }
+  } else {
+    html += linhaMuda("Cadastro removido");
+  }
+
+  return html;
+}
+
+// O que foi doado: item, quantidade, tipo e observações.
+function celulaDoacaoRelatorio(d) {
+  let html = `<strong>${esc(d.item)}</strong>`;
+
+  html += `<br>Quantidade: ${esc(d.qtd)}`;
+  html += `<br>Tipo: ${esc(d.tipo)}`;
+
+  if (d.obs) {
+    html += linhaMuda(`Obs.: ${d.obs}`);
+  }
+
+  return html;
 }
 
 function gerarRelatorio() {
@@ -893,6 +1305,15 @@ function gerarRelatorio() {
       (doadores[d.doador] || 0) + 1;
   });
 
+  const doadoresDiferentes = new Set(
+    doacoes
+      .filter(d => !d.pelaOng)
+      .map(d => d.doadorId || d.doador)
+  ).size;
+
+  const feitasPelaOng = doacoes.filter(d => d.pelaOng).length;
+  const entregues = doacoes.filter(d => d.beneficiarioId).length;
+
   container.innerHTML = `
     <h2 style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--principal);margin-bottom:4px">
       Relatório de Doações — ${meses[mes - 1]}/${ano}
@@ -911,8 +1332,23 @@ function gerarRelatorio() {
       </div>
 
       <div class="rel-linha">
-        <span>Doadores diferentes</span>
-        <span class="valor">${Object.keys(doadores).length}</span>
+        <span>Doadores diferentes (sem contar a ONG)</span>
+        <span class="valor">${doadoresDiferentes}</span>
+      </div>
+
+      <div class="rel-linha">
+        <span>Doações feitas pela ONG</span>
+        <span class="valor">${feitasPelaOng}</span>
+      </div>
+
+      <div class="rel-linha">
+        <span>Doações entregues a beneficiários</span>
+        <span class="valor">${entregues}</span>
+      </div>
+
+      <div class="rel-linha">
+        <span>Doações em estoque (sem beneficiário)</span>
+        <span class="valor">${doacoes.length - entregues}</span>
       </div>
     </div>
 
@@ -947,16 +1383,15 @@ function gerarRelatorio() {
     </div>
 
     <div class="rel-secao">
-      <h3>Detalhamento Completo</h3>
+      <h3>Detalhamento das Doações</h3>
 
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
           <tr style="background:var(--cinza-1)">
-            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2)">Data</th>
-            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2)">Doador</th>
-            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2)">Item</th>
-            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2)">Tipo</th>
-            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2)">Quantidade</th>
+            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2);width:11%">Data</th>
+            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2);width:25%">Quem doou</th>
+            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2);width:32%">Quem recebeu</th>
+            <th style="padding:8px;text-align:left;border-bottom:1px solid var(--cinza-2);width:32%">O que foi doado</th>
           </tr>
         </thead>
 
@@ -964,12 +1399,11 @@ function gerarRelatorio() {
           ${[...doacoes]
             .sort((a, b) => a.data.localeCompare(b.data))
             .map(d => `
-              <tr style="border-bottom:1px solid var(--cinza-1)">
-                <td style="padding:7px 8px">${formatarData(d.data)}</td>
-                <td style="padding:7px 8px">${d.doador}</td>
-                <td style="padding:7px 8px">${d.item}</td>
-                <td style="padding:7px 8px">${d.tipo}</td>
-                <td style="padding:7px 8px">${d.qtd}</td>
+              <tr style="border-bottom:1px solid var(--cinza-2);page-break-inside:avoid">
+                <td style="padding:8px;vertical-align:top">${formatarData(d.data)}</td>
+                <td style="padding:8px;vertical-align:top">${celulaDoadorRelatorio(d)}</td>
+                <td style="padding:8px;vertical-align:top">${celulaBeneficiarioRelatorio(d)}</td>
+                <td style="padding:8px;vertical-align:top">${celulaDoacaoRelatorio(d)}</td>
               </tr>
             `).join("")}
         </tbody>

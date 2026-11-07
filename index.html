@@ -25,6 +25,9 @@
       <div class="nav-item" onclick="irPara('doacoes')">
         Doações
       </div>
+      <div class="nav-item" onclick="irPara('beneficiarios')">
+        Beneficiários
+      </div>
       <div class="nav-item" onclick="irPara('relatorio')">
         Relatório
       </div>
@@ -136,11 +139,45 @@
               <th>Tipo</th>
               <th>Quantidade</th>
               <th>Data</th>
+              <th>Entregue para</th>
               <th>Obs.</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabela-doacoes"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── BENEFICIÁRIOS ── -->
+    <section id="beneficiarios" class="pagina">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Beneficiários</div>
+          <div class="page-sub">Pessoas e famílias que recebem as doações</div>
+        </div>
+        <button class="btn btn-principal" onclick="abrirModalBeneficiario()">＋ Novo Beneficiário</button>
+      </div>
+
+      <div class="tabela-wrap">
+        <div class="tabela-header">
+          <span class="tabela-titulo" id="contagem-beneficiarios">0 beneficiários</span>
+          <div class="busca-wrap">
+            <span class="busca-ico">🔍</span>
+            <input type="text" placeholder="Buscar por nome ou endereço..." oninput="filtrarBeneficiarios(this.value)" style="width:260px">
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Celular</th>
+              <th>Endereço</th>
+              <th>Doações recebidas</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-beneficiarios"></tbody>
         </table>
       </div>
     </section>
@@ -232,8 +269,21 @@
   <div class="modal">
     <div class="modal-titulo" id="titulo-modal-doacao">Nova Doação</div>
     <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0">
+        <input type="checkbox" id="dc-ong" onchange="alternarDoacaoOng()" style="width:auto;padding:0;margin:0">
+        Doação feita pela ONG
+      </label>
+    </div>
+    <div class="form-group" id="aviso-ong" style="display:none">
+      <div style="font-size:12px;color:var(--texto-2)">O doador será registrado como ONG.</div>
+    </div>
+    <div class="form-group" id="grupo-doador">
       <label>Doador *</label>
       <select id="dc-doador"></select>
+    </div>
+    <div class="form-group">
+      <label>Entregue para (opcional)</label>
+      <select id="dc-beneficiario"></select>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -270,6 +320,29 @@
     <div class="form-acoes">
       <button class="btn btn-ghost" onclick="fecharModal('modal-doacao')">Cancelar</button>
       <button class="btn btn-principal" onclick="salvarDoacao()">Registrar Doação</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BENEFICIÁRIO -->
+<div class="modal-overlay" id="modal-beneficiario">
+  <div class="modal">
+    <div class="modal-titulo" id="titulo-modal-beneficiario">Novo Beneficiário</div>
+    <div class="form-group">
+      <label>Nome da pessoa ou família *</label>
+      <input type="text" id="b-nome" placeholder="Ex: Família Oliveira">
+    </div>
+    <div class="form-group">
+      <label>Celular *</label>
+      <input type="text" id="b-tel" placeholder="(11) 99999-9999" inputmode="tel" maxlength="15" oninput="mascararCelular(this)">
+    </div>
+    <div class="form-group">
+      <label>Endereço *</label>
+      <textarea id="b-endereco" rows="2" placeholder="Rua, número, bairro, cidade"></textarea>
+    </div>
+    <div class="form-acoes">
+      <button class="btn btn-ghost" onclick="fecharModal('modal-beneficiario')">Cancelar</button>
+      <button class="btn btn-principal" onclick="salvarBeneficiario()">Salvar Beneficiário</button>
     </div>
   </div>
 </div>

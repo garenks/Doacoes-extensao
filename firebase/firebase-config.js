@@ -4,13 +4,15 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBxl2sOurOSPW3xZXuhdYjbrAMnH-l-CAo",
+  apiKey: "AIzaSyBBuAVff0_t3bGl5wJrREZ20kdoU4aq79E",
   authDomain: "ong-una.firebaseapp.com",
   projectId: "ong-una",
   storageBucket: "ong-una.firebasestorage.app",
-  messagingSenderId: "238669137907",
-  appId: "1:238669137907:web:aba9e80b95d47db9f5b486"
+  messagingSenderId: "470871248174",
+  appId: "1:470871248174:web:d87dc87bf31f32b5d4bebf",
+  measurementId: "G-W3S9ZTNS9D"
 };
+
 
 // Evita inicializar duas vezes caso o script seja carregado de novo.
 if (!firebase.apps.length) {
